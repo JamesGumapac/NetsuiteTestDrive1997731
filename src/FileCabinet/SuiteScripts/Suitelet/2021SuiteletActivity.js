@@ -27,7 +27,7 @@ define(['N/ui/serverWidget',
                     title: 'Transaction Amounts',
                     hideNavBar: false
                 });
-                //File Id of the client script from the file cabinet
+               
                 form.clientScriptFileId = 12052;
 
                 // Get parameters
