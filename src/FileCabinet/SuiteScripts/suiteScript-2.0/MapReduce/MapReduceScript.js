@@ -1,0 +1,148 @@
+/**
+ * @NApiVersion 2.1
+ * @NScriptType MapReduceScript
+ */
+define(['N/search'],
+    /**
+     * @param{search} search
+     */
+    (search) => {
+        /**
+         * Defines the function that is executed at the beginning of the map/reduce process and generates the input data.
+         * @param {Object} inputContext
+         * @param {boolean} inputContext.isRestarted - Indicates whether the current invocation of this function is the first
+         *     invocation (if true, the current invocation is not the first invocation and this function has been restarted)
+         * @param {Object} inputContext.ObjectRef - Object that references the input data
+         * @typedef {Object} ObjectRef
+         * @property {string|number} ObjectRef.id - Internal ID of the record instance that contains the input data
+         * @property {string} ObjectRef.type - Type of the record instance that contains the input data
+         * @returns {Array|Object|Search|ObjectRef|File|Query} The input data to use in the map/reduce process
+         * @since 2015.2
+         */
+        
+        const getInputData = (inputContext) => {
+            log.debug('---GetInputData Stage ---')
+            let salesOrderTotal = search.create({
+                type: "salesorder",
+                filters:
+                    [
+                        ["type","anyof","SalesOrd"],
+                        "AND",
+                        ["mainline","is","T"]
+                    ],
+                columns:
+                    [
+                        search.createColumn({name: "entity", label: "Name"}),
+                        search.createColumn({name: "amount", label: "Amount"})
+                    ]
+            });
+            
+            return salesOrderTotal;
+         
+        }
+        
+        /**
+         * Defines the function that is executed when the map entry point is triggered. This entry point is triggered automatically
+         * when the associated getInputData stage is complete. This function is applied to each key-value pair in the provided
+         * context.
+         * @param {Object} context - Data collection containing the key-value pairs to process in the map stage. This parameter
+         *     is provided automatically based on the results of the getInputData stage.
+         * @param {Iterator} context.errors - Serialized errors that were thrown during previous attempts to execute the map
+         *     function on the current key-value pair
+         * @param {number} context.executionNo - Number of times the map function has been executed on the current key-value
+         *     pair
+         * @param {boolean} context.isRestarted - Indicates whether the current invocation of this function is the first
+         *     invocation (if true, the current invocation is not the first invocation and this function has been restarted)
+         * @param {string} context.key - Key to be processed during the map stage
+         * @param {string} context.value - Value to be processed during the map stage
+         * @since 2015.2
+         */
+        
+        const map = (context) => {
+         
+            let searchResult = JSON.parse(context.value);
+           
+            let customerName = searchResult.values.entity.text;
+            let totalPayment = searchResult.values.amount;
+           // log.debug({title: 'customerName', details: customerName})
+          //  log.debug({title: 'totalPayment', details: totalPayment})
+    
+            context.write({
+                key: customerName,
+                value: totalPayment
+                
+            })
+        }
+        
+        /**
+         * Defines the function that is executed when the reduce entry point is triggered. This entry point is triggered
+         * automatically when the associated map stage is complete. This function is applied to each group in the provided context.
+         * @param {Object} reduceContext - Data collection containing the groups to process in the reduce stage. This parameter is
+         *     provided automatically based on the results of the map stage.
+         * @param {Iterator} reduceContext.errors - Serialized errors that were thrown during previous attempts to execute the
+         *     reduce function on the current group
+         * @param {number} reduceContext.executionNo - Number of times the reduce function has been executed on the current group
+         * @param {boolean} reduceContext.isRestarted - Indicates whether the current invocation of this function is the first
+         *     invocation (if true, the current invocation is not the first invocation and this function has been restarted)
+         * @param {string} reduceContext.key - Key to be processed during the reduce stage
+         * @param {List<String>} reduceContext.values - All values associated with a unique key that was passed to the reduce stage
+         *     for processing
+         * @since 2015.2
+         */
+        const reduce = (reduceContext) => {
+            log.debug('---Reduce Stage---')
+            log.debug({title: 'Reduce Context', details: reduceContext.values})
+            //
+            // for(let i in reduceContext.values){
+            //     total += parseFloat(reduceContext.values[i])
+            // }
+            
+         
+            log.debug({title: 'Totals', details:`The Customer: ${reduceContext.key} has a total purchase of : $${total.toFixed(2)}`})
+        }
+        
+        
+        /**
+         * Defines the function that is executed when the summarize entry point is triggered. This entry point is triggered
+         * automatically when the associated reduce stage is complete. This function is applied to the entire result set.
+         * @param {Object} summaryContext - Statistics about the execution of a map/reduce script
+         * @param {number} summaryContext.concurrency - Maximum concurrency number when executing parallel tasks for the map/reduce
+         *     script
+         * @param {Date} summaryContext.dateCreated - The date and time when the map/reduce script began running
+         * @param {boolean} summaryContext.isRestarted - Indicates whether the current invocation of this function is the first
+         *     invocation (if true, the current invocation is not the first invocation and this function has been restarted)
+         * @param {Iterator} summaryContext.output - Serialized keys and values that were saved as output during the reduce stage
+         * @param {number} summaryContext.seconds - Total seconds elapsed when running the map/reduce script
+         * @param {number} summaryContext.usage - Total number of governance usage units consumed when running the map/reduce
+         *     script
+         * @param {number} summaryContext.yields - Total number of yields when running the map/reduce script
+         * @param {Object} summaryContext.inputSummary - Statistics about the input stage
+         * @param {Object} summaryContext.mapSummary - Statistics about the map stage
+         * @param {Object} summaryContext.reduceSummary - Statistics about the reduce stage
+         * @since 2015.2
+         */
+        const summarize = (summaryContext) => {
+            //Number of porcessors alloted from this script
+        log.audit('Number of Processors ', summaryContext.concurrency)
+            // Number of yields performed udring the lifetime execution
+            log.audit('Number of Yields ', summaryContext.yields)
+            
+            //Display errors in Map Stage
+            if(summaryContext.inputSummary.error){
+                log.error('Input error', summaryContext.inputSummary.error)
+            }
+            
+            //Display errors in Reduce Stage
+            if(summaryContext.reduceSummary.errors.iterator){
+                summaryContext.mapSummary.errors.iterator().each(function (code,message){
+                    log.error('Map Error: ' + code, message);
+                    return true;
+                    
+                })
+                
+            }
+        }
+        
+        return {getInputData, map, reduce, summarize}
+        
+    });
