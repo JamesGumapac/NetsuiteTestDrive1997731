@@ -27,7 +27,7 @@ define(['N/ui/serverWidget',
                     title: 'Transaction Amounts',
                     hideNavBar: false
                 });
-               
+
                 form.clientScriptFileId = 12052;
 
                 // Get parameters
@@ -100,6 +100,7 @@ define(['N/ui/serverWidget',
                         functionName: 'getSuiteletPage(' + scriptId + ', ' + deploymentId + ', ' + (pageId + 1) + ')'
                     });
                 }
+
 
                 // Add drop-down and options to navigate to specific page
                 var selectOptions = form.addField({
